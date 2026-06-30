@@ -19,6 +19,11 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    const keyPreview = process.env.ANTHROPIC_API_KEY
+      ? `set (starts: ${process.env.ANTHROPIC_API_KEY.slice(0, 10)}...)`
+      : 'NOT SET'
+    console.log('API key status:', keyPreview)
+
     const result = await generateApplication(jobDescription, cvText)
     return NextResponse.json(result)
   } catch (err) {

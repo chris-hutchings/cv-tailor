@@ -19,7 +19,8 @@ export async function POST(req: NextRequest) {
       text = buffer.toString('utf-8')
     } else if (ext === 'pdf') {
       const { extractText } = await import('unpdf')
-      text = await extractText(buffer, { mergePages: true })
+      const result = await extractText(buffer, { mergePages: true })
+      text = result.text
     } else if (ext === 'doc' || ext === 'docx') {
       const mammoth = await import('mammoth')
       const result = await mammoth.extractRawText({ buffer })
