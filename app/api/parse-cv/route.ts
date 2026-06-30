@@ -18,9 +18,8 @@ export async function POST(req: NextRequest) {
     if (ext === 'txt') {
       text = buffer.toString('utf-8')
     } else if (ext === 'pdf') {
-      // Use the lib path directly to avoid pdf-parse's test runner which requires DOMMatrix
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const pdfParse = require('pdf-parse/lib/pdf-parse.js')
+      const pdfParse = require('pdf-parse')
       const data = await pdfParse(buffer)
       text = data.text
     } else if (ext === 'doc' || ext === 'docx') {
@@ -29,7 +28,7 @@ export async function POST(req: NextRequest) {
       text = result.value
     } else {
       return NextResponse.json(
-        { error: 'Unsupported file type. Please upload PDF, Word, or TXT.' },
+        { error: 'Unsupported file type. Please upload a Word doc (.docx) or paste your CV as text.' },
         { status: 400 }
       )
     }
