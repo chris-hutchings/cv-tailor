@@ -19,10 +19,8 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const keyPreview = process.env.ANTHROPIC_API_KEY
-      ? `set (starts: ${process.env.ANTHROPIC_API_KEY.slice(0, 10)}...)`
-      : 'NOT SET'
-    console.log('API key status:', keyPreview)
+    const anthropicVars = Object.keys(process.env).filter(k => k.toUpperCase().includes('ANTHROPIC'))
+    console.log('Anthropic-related env vars found:', anthropicVars.length > 0 ? anthropicVars : 'NONE')
 
     const result = await generateApplication(jobDescription, cvText)
     return NextResponse.json(result)
