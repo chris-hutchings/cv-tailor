@@ -18,10 +18,8 @@ export async function POST(req: NextRequest) {
     if (ext === 'txt') {
       text = buffer.toString('utf-8')
     } else if (ext === 'pdf') {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const pdfParse = require('pdf-parse')
-      const data = await pdfParse(buffer)
-      text = data.text
+      const { extractText } = await import('unpdf')
+      text = await extractText(buffer, { mergePages: true })
     } else if (ext === 'doc' || ext === 'docx') {
       const mammoth = await import('mammoth')
       const result = await mammoth.extractRawText({ buffer })
