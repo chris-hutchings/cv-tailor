@@ -18,9 +18,9 @@ export async function POST(req: NextRequest) {
     if (ext === 'txt') {
       text = buffer.toString('utf-8')
     } else if (ext === 'pdf') {
-      // Dynamic import to avoid edge runtime issues
+      // Use the lib path directly to avoid pdf-parse's test runner which requires DOMMatrix
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const pdfParse = require('pdf-parse')
+      const pdfParse = require('pdf-parse/lib/pdf-parse.js')
       const data = await pdfParse(buffer)
       text = data.text
     } else if (ext === 'doc' || ext === 'docx') {
