@@ -19,9 +19,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const anthropicVars = Object.keys(process.env).filter(k => k.toUpperCase().includes('ANTHROPIC'))
-    console.log('Anthropic-related env vars found:', anthropicVars.length > 0 ? anthropicVars : 'NONE')
-
     const result = await generateApplication(jobDescription, cvText)
     return NextResponse.json(result)
   } catch (err) {

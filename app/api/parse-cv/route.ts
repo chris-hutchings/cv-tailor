@@ -11,6 +11,7 @@ export async function POST(req: NextRequest) {
 
     const ext = file.name.split('.').pop()?.toLowerCase()
     const bytes = await file.arrayBuffer()
+    const uint8Array = new Uint8Array(bytes)
     const buffer = Buffer.from(bytes)
 
     let text = ''
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
       text = buffer.toString('utf-8')
     } else if (ext === 'pdf') {
       const { extractText } = await import('unpdf')
-      const result = await extractText(buffer, { mergePages: true })
+      const result = await extractText(uint8Array, { mergePages: true })
       text = result.text
     } else if (ext === 'doc' || ext === 'docx') {
       const mammoth = await import('mammoth')
