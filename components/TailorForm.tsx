@@ -63,7 +63,10 @@ function ProgressChecklist({ active }: { active: boolean }) {
 }
 
 export default function TailorForm() {
+  const [jobUrl, setJobUrl] = useState('')
   const [jobDescription, setJobDescription] = useState('')
+  const [fetchingUrl, setFetchingUrl] = useState(false)
+  const [urlError, setUrlError] = useState('')
   const [cvText, setCvText] = useState('')
   const [cvFileName, setCvFileName] = useState('')
   const [loading, setLoading] = useState(false)
@@ -74,7 +77,29 @@ export default function TailorForm() {
   const [copied, setCopied] = useState<Tab | null>(null)
   const [tov, setTov] = useState<TOV>('balanced')
   const [englishVariant, setEnglishVariant] = useState<EnglishVariant>('uk')
+  const [downloadingDocx, setDownloadingDocx] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  async function handleFetchUrl() {
+    const trimmed = jobUrl.trim()
+    if (!trimmed) return
+    setFetchingUrl(true)
+    setUrlError('')
+    try {
+      const res = await fetch('/api/fetch-job', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: trimmed }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setJobDescription(data.text)
+    } catch (err) {
+      setUrlError(err instanceof Error ? err.message : 'Could not fetch this URL. Please paste the job description instead.')
+    } finally {
+      setFetchingUrl(false)
+    }
+  }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -137,17 +162,37 @@ export default function TailorForm() {
     setTimeout(() => setCopied(null), 2000)
   }
 
-  function handleDownload(tab: Tab) {
+  async function handleDownloadDocx(tab: Tab) {
     const text = tab === 'cv' ? result?.cv : result?.coverLetter
     if (!text) return
-    const filename = tab === 'cv' ? 'tailored-cv.txt' : 'cover-letter.txt'
-    const blob = new Blob([text], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    a.click()
-    URL.revokeObjectURL(url)
+    const filename = tab === 'cv' ? 'tailored-cv' : 'cover-letter'
+    setDownloadingDocx(true)
+    try {
+      const res = await fetch('/api/download-docx', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, filename }),
+      })
+      if (!res.ok) throw new Error('Failed to generate document')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${filename}.docx`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      // fallback to txt
+      const blob = new Blob([text], { type: 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${filename}.txt`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setDownloadingDocx(false)
+    }
   }
 
   return (
@@ -155,25 +200,54 @@ export default function TailorForm() {
       {/* Input panel */}
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <div className="bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-4">
+
+          {/* Job description */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Job description
             </label>
+
+            {/* URL input */}
+            <div className="flex gap-2 mb-2">
+              <input
+                type="url"
+                value={jobUrl}
+                onChange={e => { setJobUrl(e.target.value); setUrlError('') }}
+                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleFetchUrl())}
+                placeholder="Paste job URL to auto-fill..."
+                className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <button
+                type="button"
+                onClick={handleFetchUrl}
+                disabled={fetchingUrl || !jobUrl.trim()}
+                className="rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+              >
+                {fetchingUrl ? 'Fetching...' : 'Fetch'}
+              </button>
+            </div>
+
+            {urlError && (
+              <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-2">
+                {urlError}
+              </p>
+            )}
+
             <textarea
               value={jobDescription}
               onChange={e => setJobDescription(e.target.value)}
-              placeholder="Paste the full job description here..."
+              placeholder="...or paste the full job description here"
               rows={10}
               className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
             />
           </div>
 
+          {/* CV upload */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Your CV
             </label>
 
-            {/* File upload */}
             <div
               onClick={() => fileInputRef.current?.click()}
               className="mb-3 cursor-pointer rounded-lg border-2 border-dashed border-gray-200 px-4 py-4 text-center hover:border-blue-400 hover:bg-blue-50 transition-colors"
@@ -303,10 +377,11 @@ export default function TailorForm() {
                 {copied === activeTab ? '✓ Copied' : 'Copy text'}
               </button>
               <button
-                onClick={() => handleDownload(activeTab)}
-                className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
+                onClick={() => handleDownloadDocx(activeTab)}
+                disabled={downloadingDocx}
+                className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
               >
-                Download .txt
+                {downloadingDocx ? 'Preparing...' : 'Download .docx'}
               </button>
             </div>
           </>
