@@ -1,12 +1,65 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 type Tab = 'cv' | 'cover-letter'
+type TOV = 'professional' | 'balanced' | 'conversational'
+type EnglishVariant = 'uk' | 'us'
 
 interface GenerateResult {
   cv: string
   coverLetter: string
+}
+
+const PROGRESS_STEPS = [
+  'Reading your CV',
+  'Analysing job description',
+  'Tailoring your CV',
+  'Writing cover letter',
+]
+
+function ProgressChecklist({ active }: { active: boolean }) {
+  const [currentStep, setCurrentStep] = useState(0)
+
+  useEffect(() => {
+    if (!active) {
+      setCurrentStep(0)
+      return
+    }
+    setCurrentStep(0)
+    const timings = [0, 3000, 8000, 16000]
+    const timers = timings.map((delay, i) =>
+      setTimeout(() => setCurrentStep(i), delay)
+    )
+    return () => timers.forEach(clearTimeout)
+  }, [active])
+
+  return (
+    <div className="flex flex-col gap-3">
+      {PROGRESS_STEPS.map((step, i) => {
+        const done = i < currentStep
+        const inProgress = i === currentStep
+        return (
+          <div key={step} className="flex items-center gap-3">
+            <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
+              {done ? (
+                <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              ) : inProgress ? (
+                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <div className="w-4 h-4 rounded-full border-2 border-gray-200" />
+              )}
+            </div>
+            <span className={`text-sm ${done ? 'text-gray-400 line-through' : inProgress ? 'text-gray-800 font-medium' : 'text-gray-400'}`}>
+              {step}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 export default function TailorForm() {
@@ -19,6 +72,8 @@ export default function TailorForm() {
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState<Tab>('cv')
   const [copied, setCopied] = useState<Tab | null>(null)
+  const [tov, setTov] = useState<TOV>('balanced')
+  const [englishVariant, setEnglishVariant] = useState<EnglishVariant>('uk')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -61,7 +116,7 @@ export default function TailorForm() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobDescription, cvText }),
+        body: JSON.stringify({ jobDescription, cvText, tov, englishVariant }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Generation failed')
@@ -151,6 +206,52 @@ export default function TailorForm() {
             />
           </div>
 
+          {/* TOV selector */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tone of voice
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {(['professional', 'balanced', 'conversational'] as TOV[]).map(option => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setTov(option)}
+                  className={`rounded-lg border px-3 py-2 text-xs font-medium capitalize transition-colors ${
+                    tov === option
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  }`}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* English variant toggle */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              English spelling
+            </label>
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden w-fit">
+              {(['uk', 'us'] as EnglishVariant[]).map(variant => (
+                <button
+                  key={variant}
+                  type="button"
+                  onClick={() => setEnglishVariant(variant)}
+                  className={`px-5 py-2 text-xs font-semibold uppercase transition-colors ${
+                    englishVariant === variant
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {variant}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {error && (
             <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
           )}
@@ -212,11 +313,11 @@ export default function TailorForm() {
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-gray-400">
             {loading ? (
-              <>
-                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-4" />
-                <p className="text-sm text-gray-500">Tailoring your application...</p>
-                <p className="text-xs text-gray-400 mt-1">This takes about 15–30 seconds</p>
-              </>
+              <div className="w-full max-w-xs text-left">
+                <p className="text-sm font-medium text-gray-700 mb-5">Tailoring your application...</p>
+                <ProgressChecklist active={loading} />
+                <p className="text-xs text-gray-400 mt-5">This takes about 15–30 seconds</p>
+              </div>
             ) : (
               <>
                 <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3 text-2xl">📄</div>
