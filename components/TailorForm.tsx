@@ -6,6 +6,14 @@ type Screen = 'input' | 'loading' | 'output'
 type Tab = 'cv' | 'cover-letter'
 type TOV = 'professional' | 'balanced' | 'conversational'
 type EnglishVariant = 'uk' | 'us'
+type SummaryLength = 'brief' | 'normal'
+
+interface CVPreferences {
+  includeSummary: boolean
+  summaryLength: SummaryLength
+  includeSkills: boolean
+  maxSkills: number
+}
 
 interface GenerateResult {
   cv: string
@@ -78,9 +86,11 @@ function LoadingScreen() {
 // ── Output screen ──────────────────────────────────────────────────
 function OutputScreen({
   result,
+  cvName,
   onStartOver,
 }: {
   result: GenerateResult
+  cvName: string
   onStartOver: () => void
 }) {
   const [activeTab, setActiveTab] = useState<Tab>('cv')
@@ -89,6 +99,12 @@ function OutputScreen({
 
   const activeText = activeTab === 'cv' ? result.cv : result.coverLetter
 
+  const baseFilename = cvName.trim()
+    ? cvName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    : activeTab === 'cv' ? 'tailored-cv' : 'cover-letter'
+
+  const filename = activeTab === 'cv' ? `${baseFilename}-cv` : `${baseFilename}-cover-letter`
+
   async function handleCopy() {
     await navigator.clipboard.writeText(activeText)
     setCopied(true)
@@ -96,7 +112,6 @@ function OutputScreen({
   }
 
   async function handleDownloadDocx() {
-    const filename = activeTab === 'cv' ? 'tailored-cv' : 'cover-letter'
     setDownloadingDocx(true)
     try {
       const res = await fetch('/api/download-docx', {
@@ -127,7 +142,6 @@ function OutputScreen({
 
   return (
     <div className="w-full max-w-3xl mx-auto">
-      {/* Back button */}
       <button
         onClick={onStartOver}
         className="mb-6 flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors"
@@ -139,7 +153,6 @@ function OutputScreen({
       </button>
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        {/* Tabs */}
         <div className="flex border-b border-slate-100">
           {(['cv', 'cover-letter'] as Tab[]).map(tab => (
             <button
@@ -156,14 +169,12 @@ function OutputScreen({
           ))}
         </div>
 
-        {/* Content */}
         <div className="p-8">
           <pre className="text-sm text-slate-800 whitespace-pre-wrap font-sans leading-relaxed">
             {activeText}
           </pre>
         </div>
 
-        {/* Actions */}
         <div className="border-t border-slate-100 px-8 py-4 flex gap-3 bg-slate-50/60">
           <button
             onClick={handleCopy}
@@ -184,6 +195,29 @@ function OutputScreen({
   )
 }
 
+// ── Small toggle helper ────────────────────────────────────────────
+function Toggle({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean
+  onChange: (v: boolean) => void
+  label: string
+}) {
+  return (
+    <label className="flex items-center gap-2.5 cursor-pointer select-none">
+      <div
+        onClick={() => onChange(!checked)}
+        className={`relative w-9 h-5 rounded-full transition-colors ${checked ? 'bg-indigo-600' : 'bg-slate-200'}`}
+      >
+        <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-4' : 'translate-x-0'}`} />
+      </div>
+      <span className="text-sm font-medium text-slate-700">{label}</span>
+    </label>
+  )
+}
+
 // ── Input screen ───────────────────────────────────────────────────
 export default function TailorForm() {
   const [screen, setScreen] = useState<Screen>('input')
@@ -195,10 +229,18 @@ export default function TailorForm() {
   const [urlError, setUrlError] = useState('')
   const [cvText, setCvText] = useState('')
   const [cvFileName, setCvFileName] = useState('')
+  const [cvName, setCvName] = useState('')
   const [parsing, setParsing] = useState(false)
   const [error, setError] = useState('')
+
+  // Preferences
   const [tov, setTov] = useState<TOV>('balanced')
   const [englishVariant, setEnglishVariant] = useState<EnglishVariant>('uk')
+  const [includeSummary, setIncludeSummary] = useState(true)
+  const [summaryLength, setSummaryLength] = useState<SummaryLength>('normal')
+  const [includeSkills, setIncludeSkills] = useState(true)
+  const [maxSkills, setMaxSkills] = useState(10)
+
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   async function handleFetchUrl() {
@@ -256,7 +298,13 @@ export default function TailorForm() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobDescription, cvText, tov, englishVariant }),
+        body: JSON.stringify({
+          jobDescription,
+          cvText,
+          tov,
+          englishVariant,
+          cvPreferences: { includeSummary, summaryLength, includeSkills, maxSkills },
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Generation failed')
@@ -274,19 +322,22 @@ export default function TailorForm() {
     return (
       <OutputScreen
         result={result}
+        cvName={cvName}
         onStartOver={() => { setScreen('input'); setResult(null) }}
       />
     )
   }
 
-  // ── Input screen ──
+  // ── 2-column input layout ──
   return (
-    <div className="w-full max-w-2xl mx-auto">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+    <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-5 gap-5 items-start">
 
-        {/* Section: The job */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col gap-4">
-          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest">The job</h2>
+      {/* ── Left col (wider): job + CV ── */}
+      <div className="lg:col-span-3 flex flex-col gap-5">
+
+        {/* The job */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col gap-3">
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest">The job</h2>
 
           <div className="flex gap-2">
             <input
@@ -317,18 +368,18 @@ export default function TailorForm() {
             value={jobDescription}
             onChange={e => setJobDescription(e.target.value)}
             placeholder="…or paste the full job description here"
-            rows={8}
+            rows={7}
             className={inputClass + ' resize-none'}
           />
         </div>
 
-        {/* Section: Your CV */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col gap-4">
-          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Your CV</h2>
+        {/* Your CV */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col gap-3">
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Your CV</h2>
 
           <div
             onClick={() => fileInputRef.current?.click()}
-            className="cursor-pointer rounded-xl border-2 border-dashed border-slate-200 px-6 py-5 text-center hover:border-indigo-400 hover:bg-indigo-50/40 transition-colors"
+            className="cursor-pointer rounded-xl border-2 border-dashed border-slate-200 px-6 py-4 text-center hover:border-indigo-400 hover:bg-indigo-50/40 transition-colors"
           >
             <input
               ref={fileInputRef}
@@ -344,7 +395,7 @@ export default function TailorForm() {
             ) : (
               <>
                 <p className="text-sm font-semibold text-slate-600">Upload your CV</p>
-                <p className="text-xs text-slate-400 mt-1">PDF, Word, or TXT — or paste below</p>
+                <p className="text-xs text-slate-400 mt-0.5">PDF, Word, or TXT — or paste below</p>
               </>
             )}
           </div>
@@ -353,24 +404,42 @@ export default function TailorForm() {
             value={cvText}
             onChange={e => { setCvText(e.target.value); setCvFileName('') }}
             placeholder="…or paste your CV text here"
-            rows={7}
+            rows={6}
             className={inputClass + ' resize-none'}
           />
         </div>
+      </div>
 
-        {/* Section: Preferences */}
+      {/* ── Right col (narrower): preferences + button ── */}
+      <div className="lg:col-span-2 flex flex-col gap-5">
+
+        {/* Application name */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col gap-3">
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Application name</h2>
+          <input
+            type="text"
+            value={cvName}
+            onChange={e => setCvName(e.target.value)}
+            placeholder="e.g. Google — Product Manager"
+            className={inputClass}
+          />
+          <p className="text-xs text-slate-400">Used as the filename when downloading</p>
+        </div>
+
+        {/* Preferences */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col gap-5">
-          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Preferences</h2>
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Preferences</h2>
 
+          {/* TOV */}
           <div className="flex flex-col gap-2">
             <label className="text-sm font-semibold text-slate-700">Tone of voice</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-1.5">
               {(['professional', 'balanced', 'conversational'] as TOV[]).map(option => (
                 <button
                   key={option}
                   type="button"
                   onClick={() => setTov(option)}
-                  className={`rounded-xl border px-3 py-2.5 text-xs font-semibold capitalize transition-all ${
+                  className={`rounded-lg border px-2 py-2 text-xs font-semibold capitalize transition-all ${
                     tov === option
                       ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                       : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700'
@@ -382,6 +451,7 @@ export default function TailorForm() {
             </div>
           </div>
 
+          {/* UK / US */}
           <div className="flex flex-col gap-2">
             <label className="text-sm font-semibold text-slate-700">English spelling</label>
             <div className="flex rounded-xl border border-slate-200 overflow-hidden w-fit bg-slate-50">
@@ -390,7 +460,7 @@ export default function TailorForm() {
                   key={variant}
                   type="button"
                   onClick={() => setEnglishVariant(variant)}
-                  className={`px-6 py-2.5 text-xs font-bold uppercase tracking-widest transition-all ${
+                  className={`px-5 py-2 text-xs font-bold uppercase tracking-widest transition-all ${
                     englishVariant === variant
                       ? 'bg-indigo-600 text-white'
                       : 'text-slate-500 hover:text-slate-700'
@@ -400,6 +470,55 @@ export default function TailorForm() {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Professional summary */}
+          <div className="flex flex-col gap-2.5 pt-1 border-t border-slate-100">
+            <Toggle
+              checked={includeSummary}
+              onChange={setIncludeSummary}
+              label="Professional summary"
+            />
+            {includeSummary && (
+              <div className="ml-11 flex gap-2">
+                {(['brief', 'normal'] as SummaryLength[]).map(len => (
+                  <button
+                    key={len}
+                    type="button"
+                    onClick={() => setSummaryLength(len)}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-semibold capitalize transition-all ${
+                      summaryLength === len
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                    }`}
+                  >
+                    {len === 'brief' ? 'Brief' : 'Full'}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Key skills */}
+          <div className="flex flex-col gap-2.5 pt-1 border-t border-slate-100">
+            <Toggle
+              checked={includeSkills}
+              onChange={setIncludeSkills}
+              label="Key skills section"
+            />
+            {includeSkills && (
+              <div className="ml-11 flex items-center gap-3">
+                <label className="text-xs text-slate-500 whitespace-nowrap">Max skills</label>
+                <input
+                  type="number"
+                  min={3}
+                  max={20}
+                  value={maxSkills}
+                  onChange={e => setMaxSkills(Math.min(20, Math.max(3, parseInt(e.target.value) || 3)))}
+                  className="w-16 rounded-lg border border-slate-200 px-2 py-1.5 text-sm text-slate-900 text-center focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            )}
           </div>
         </div>
 
@@ -414,7 +533,7 @@ export default function TailorForm() {
         >
           Tailor my application →
         </button>
-      </form>
-    </div>
+      </div>
+    </form>
   )
 }

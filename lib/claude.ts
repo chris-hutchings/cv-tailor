@@ -10,16 +10,41 @@ const TOV_DESCRIPTIONS: Record<string, string> = {
   conversational: 'warm and natural — write the way a sharp person speaks; contractions throughout, personality showing',
 }
 
+export interface CVPreferences {
+  includeSummary: boolean
+  summaryLength: 'brief' | 'normal'
+  includeSkills: boolean
+  maxSkills: number
+}
+
 export async function generateApplication(
   jobDescription: string,
   cvText: string,
   tov: 'professional' | 'balanced' | 'conversational' = 'balanced',
-  englishVariant: 'uk' | 'us' = 'uk'
+  englishVariant: 'uk' | 'us' = 'uk',
+  cvPreferences: CVPreferences = {
+    includeSummary: true,
+    summaryLength: 'normal',
+    includeSkills: true,
+    maxSkills: 10,
+  }
 ) {
   const tovDescription = TOV_DESCRIPTIONS[tov]
   const spellingNote = englishVariant === 'uk'
     ? 'Use British English spelling throughout (e.g. optimise, organisation, colour, programme, centre).'
     : 'Use American English spelling throughout (e.g. optimize, organization, color, program, center).'
+
+  const summaryRule = cvPreferences.includeSummary
+    ? `Include a Professional Summary/Profile section near the top. Length: ${
+        cvPreferences.summaryLength === 'brief'
+          ? '2–3 sentences — punchy, direct, no waffle'
+          : '4–6 sentences — covering background, key strengths, and what specifically you bring to this role'
+      }.`
+    : 'Do NOT include a Professional Summary or Profile section. Remove it if it exists in the original CV.'
+
+  const skillsRule = cvPreferences.includeSkills
+    ? `Include a Key Skills section. Cap it at ${cvPreferences.maxSkills} skills maximum — pick only the most relevant to this specific role. Do not pad it out.`
+    : 'Do NOT include a Key Skills or Core Competencies section. Remove it if it exists in the original CV.'
 
   const prompt = `You are an expert CV writer. Tailor the candidate's CV and write a cover letter for the role below.
 
@@ -41,11 +66,12 @@ CV:
 - Reorder and reframe bullet points to highlight the most relevant experience for this role.
 - Weave in relevant keywords naturally — do NOT copy phrases wholesale from the job spec or stuff keywords awkwardly.
 - Make every bullet punchy and achievement-focused where possible. Cut filler.
-- Adjust the professional summary to speak directly to this role.
 - Keep the same overall structure and timeline.
 - NEVER use em dashes (—). Use commas, colons, or restructure the sentence instead.
 - Do not use hollow filler phrases like "results-driven", "passionate about", "dynamic", "leverage", "synergy", "spearhead", or "proven track record".
 - Output must not read like AI wrote it. Vary sentence structure. Be specific, not generic.
+- ${summaryRule}
+- ${skillsRule}
 
 Cover letter (3–4 short paragraphs):
 - Do NOT open with "I am writing to apply for..." or any variant of it.
@@ -72,7 +98,6 @@ Return only the JSON object, nothing else.`
   const content = message.content[0]
   if (content.type !== 'text') throw new Error('Unexpected response type from Claude')
 
-  // Strip markdown code fences if present
   const text = content.text.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim()
 
   return JSON.parse(text) as { cv: string; coverLetter: string }

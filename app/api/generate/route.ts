@@ -3,7 +3,7 @@ import { generateApplication } from '@/lib/claude'
 
 export async function POST(req: NextRequest) {
   try {
-    const { jobDescription, cvText, tov, englishVariant } = await req.json()
+    const { jobDescription, cvText, tov, englishVariant, cvPreferences } = await req.json()
 
     if (!jobDescription?.trim() || !cvText?.trim()) {
       return NextResponse.json(
@@ -23,7 +23,8 @@ export async function POST(req: NextRequest) {
       jobDescription,
       cvText,
       tov ?? 'balanced',
-      englishVariant ?? 'uk'
+      englishVariant ?? 'uk',
+      cvPreferences ?? undefined
     )
     return NextResponse.json(result)
   } catch (err) {
