@@ -35,24 +35,30 @@ function ProgressChecklist({ active }: { active: boolean }) {
   }, [active])
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
       {PROGRESS_STEPS.map((step, i) => {
         const done = i < currentStep
         const inProgress = i === currentStep
         return (
           <div key={step} className="flex items-center gap-3">
-            <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
+            <div className="w-6 h-6 flex-shrink-0 flex items-center justify-center">
               {done ? (
-                <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
+                <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center">
+                  <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
               ) : inProgress ? (
-                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                <div className="w-6 h-6 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
               ) : (
-                <div className="w-4 h-4 rounded-full border-2 border-gray-200" />
+                <div className="w-6 h-6 rounded-full border-2 border-slate-200" />
               )}
             </div>
-            <span className={`text-sm ${done ? 'text-gray-400 line-through' : inProgress ? 'text-gray-800 font-medium' : 'text-gray-400'}`}>
+            <span className={`text-sm font-medium ${
+              done ? 'text-slate-400 line-through' :
+              inProgress ? 'text-slate-900' :
+              'text-slate-400'
+            }`}>
               {step}
             </span>
           </div>
@@ -61,6 +67,8 @@ function ProgressChecklist({ active }: { active: boolean }) {
     </div>
   )
 }
+
+const inputClass = "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow"
 
 export default function TailorForm() {
   const [jobUrl, setJobUrl] = useState('')
@@ -104,18 +112,14 @@ export default function TailorForm() {
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-
     setCvFileName(file.name)
     setParsing(true)
     setError('')
-
     try {
       const formData = new FormData()
       formData.append('file', file)
-
       const res = await fetch('/api/parse-cv', { method: 'POST', body: formData })
       const data = await res.json()
-
       if (!res.ok) throw new Error(data.error || 'Failed to parse CV')
       setCvText(data.text)
     } catch (err) {
@@ -132,11 +136,9 @@ export default function TailorForm() {
       setError('Please provide both a job description and your CV.')
       return
     }
-
     setLoading(true)
     setError('')
     setResult(null)
-
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
@@ -182,7 +184,6 @@ export default function TailorForm() {
       a.click()
       URL.revokeObjectURL(url)
     } catch {
-      // fallback to txt
       const blob = new Blob([text], { type: 'text/plain' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -197,38 +198,37 @@ export default function TailorForm() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Input panel */}
-      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-        <div className="bg-white rounded-xl border border-gray-200 p-5 flex flex-col gap-4">
+
+      {/* ── Input panel ── */}
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col gap-5">
 
           {/* Job description */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Job description
-            </label>
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-semibold text-slate-700">Job description</label>
 
-            {/* URL input */}
-            <div className="flex gap-2 mb-2">
+            {/* URL row */}
+            <div className="flex gap-2">
               <input
                 type="url"
                 value={jobUrl}
                 onChange={e => { setJobUrl(e.target.value); setUrlError('') }}
                 onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleFetchUrl())}
-                placeholder="Paste job URL to auto-fill..."
-                className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Paste a job URL to auto-fill..."
+                className={inputClass}
               />
               <button
                 type="button"
                 onClick={handleFetchUrl}
                 disabled={fetchingUrl || !jobUrl.trim()}
-                className="rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                className="shrink-0 rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
-                {fetchingUrl ? 'Fetching...' : 'Fetch'}
+                {fetchingUrl ? 'Fetching…' : 'Fetch'}
               </button>
             </div>
 
             {urlError && (
-              <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-2">
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                 {urlError}
               </p>
             )}
@@ -236,21 +236,19 @@ export default function TailorForm() {
             <textarea
               value={jobDescription}
               onChange={e => setJobDescription(e.target.value)}
-              placeholder="...or paste the full job description here"
-              rows={10}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              placeholder="…or paste the full job description here"
+              rows={9}
+              className={inputClass + ' resize-none'}
             />
           </div>
 
           {/* CV upload */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Your CV
-            </label>
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-semibold text-slate-700">Your CV</label>
 
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="mb-3 cursor-pointer rounded-lg border-2 border-dashed border-gray-200 px-4 py-4 text-center hover:border-blue-400 hover:bg-blue-50 transition-colors"
+              className="cursor-pointer rounded-xl border-2 border-dashed border-slate-200 px-4 py-4 text-center hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors"
             >
               <input
                 ref={fileInputRef}
@@ -260,41 +258,39 @@ export default function TailorForm() {
                 className="hidden"
               />
               {parsing ? (
-                <p className="text-sm text-blue-600">Parsing file...</p>
+                <p className="text-sm text-indigo-600 font-medium">Parsing file…</p>
               ) : cvFileName ? (
-                <p className="text-sm text-green-600 font-medium">✓ {cvFileName}</p>
+                <p className="text-sm text-emerald-600 font-semibold">✓ {cvFileName}</p>
               ) : (
-                <p className="text-sm text-gray-500">
-                  Upload CV <span className="text-gray-400">(PDF, Word, or TXT)</span>
-                  <span className="block text-xs text-gray-400 mt-0.5">or paste below</span>
-                </p>
+                <>
+                  <p className="text-sm text-slate-500 font-medium">Upload CV</p>
+                  <p className="text-xs text-slate-400 mt-0.5">PDF, Word, or TXT — or paste below</p>
+                </>
               )}
             </div>
 
             <textarea
               value={cvText}
               onChange={e => { setCvText(e.target.value); setCvFileName('') }}
-              placeholder="...or paste your CV text here"
-              rows={8}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              placeholder="…or paste your CV text here"
+              rows={7}
+              className={inputClass + ' resize-none'}
             />
           </div>
 
           {/* TOV selector */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tone of voice
-            </label>
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-semibold text-slate-700">Tone of voice</label>
             <div className="grid grid-cols-3 gap-2">
               {(['professional', 'balanced', 'conversational'] as TOV[]).map(option => (
                 <button
                   key={option}
                   type="button"
                   onClick={() => setTov(option)}
-                  className={`rounded-lg border px-3 py-2 text-xs font-medium capitalize transition-colors ${
+                  className={`rounded-xl border px-3 py-2.5 text-xs font-semibold capitalize transition-all ${
                     tov === option
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                      : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700'
                   }`}
                 >
                   {option}
@@ -303,21 +299,19 @@ export default function TailorForm() {
             </div>
           </div>
 
-          {/* English variant toggle */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              English spelling
-            </label>
-            <div className="flex rounded-lg border border-gray-200 overflow-hidden w-fit">
+          {/* UK / US toggle */}
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-semibold text-slate-700">English spelling</label>
+            <div className="flex rounded-xl border border-slate-200 overflow-hidden w-fit bg-slate-100/60">
               {(['uk', 'us'] as EnglishVariant[]).map(variant => (
                 <button
                   key={variant}
                   type="button"
                   onClick={() => setEnglishVariant(variant)}
-                  className={`px-5 py-2 text-xs font-semibold uppercase transition-colors ${
+                  className={`px-6 py-2 text-xs font-bold uppercase tracking-widest transition-all ${
                     englishVariant === variant
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-gray-500 hover:text-gray-700'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700'
                   }`}
                 >
                   {variant}
@@ -327,33 +321,33 @@ export default function TailorForm() {
           </div>
 
           {error && (
-            <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
+            <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-2.5">{error}</p>
           )}
 
           <button
             type="submit"
             disabled={loading || parsing || !jobDescription.trim() || !cvText.trim()}
-            className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-3.5 text-sm font-bold text-white hover:from-indigo-700 hover:to-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
           >
-            {loading ? 'Generating...' : 'Tailor my application →'}
+            {loading ? 'Generating…' : 'Tailor my application →'}
           </button>
         </div>
       </form>
 
-      {/* Output panel */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col">
+      {/* ── Output panel ── */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
         {result ? (
           <>
             {/* Tabs */}
-            <div className="flex border-b border-gray-200">
+            <div className="flex border-b border-slate-100">
               {(['cv', 'cover-letter'] as Tab[]).map(tab => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                  className={`flex-1 px-4 py-3.5 text-sm font-semibold transition-colors ${
                     activeTab === tab
-                      ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
-                      : 'text-gray-500 hover:text-gray-700'
+                      ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/40'
+                      : 'text-slate-400 hover:text-slate-600'
                   }`}
                 >
                   {tab === 'cv' ? 'Tailored CV' : 'Cover Letter'}
@@ -362,42 +356,44 @@ export default function TailorForm() {
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-auto p-5">
-              <pre className="text-sm text-gray-800 whitespace-pre-wrap font-sans leading-relaxed">
+            <div className="flex-1 overflow-auto p-6">
+              <pre className="text-sm text-slate-800 whitespace-pre-wrap font-sans leading-relaxed">
                 {activeTab === 'cv' ? result.cv : result.coverLetter}
               </pre>
             </div>
 
-            {/* Actions */}
-            <div className="border-t border-gray-200 px-5 py-3 flex gap-2 bg-gray-50">
+            {/* Action bar */}
+            <div className="border-t border-slate-100 px-6 py-3.5 flex gap-3 bg-slate-50/60">
               <button
                 onClick={() => handleCopy(activeTab)}
-                className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors"
               >
                 {copied === activeTab ? '✓ Copied' : 'Copy text'}
               </button>
               <button
                 onClick={() => handleDownloadDocx(activeTab)}
                 disabled={downloadingDocx}
-                className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="flex-1 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-3 py-2.5 text-xs font-bold text-white hover:from-indigo-700 hover:to-violet-700 disabled:opacity-50 transition-all shadow-sm"
               >
-                {downloadingDocx ? 'Preparing...' : 'Download .docx'}
+                {downloadingDocx ? 'Preparing…' : 'Download .docx'}
               </button>
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-gray-400">
+          <div className="flex-1 flex flex-col items-center justify-center p-10 text-center">
             {loading ? (
               <div className="w-full max-w-xs text-left">
-                <p className="text-sm font-medium text-gray-700 mb-5">Tailoring your application...</p>
+                <p className="text-sm font-bold text-slate-800 mb-6">Tailoring your application…</p>
                 <ProgressChecklist active={loading} />
-                <p className="text-xs text-gray-400 mt-5">This takes about 15–30 seconds</p>
+                <p className="text-xs text-slate-400 mt-6">This takes about 15–30 seconds</p>
               </div>
             ) : (
               <>
-                <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3 text-2xl">📄</div>
-                <p className="text-sm font-medium text-gray-500">Your tailored CV and cover letter will appear here</p>
-                <p className="text-xs mt-1">Fill in the form and click generate</p>
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-100 to-violet-100 flex items-center justify-center mb-4 text-3xl">
+                  📄
+                </div>
+                <p className="text-sm font-semibold text-slate-600">Your tailored CV and cover letter will appear here</p>
+                <p className="text-xs text-slate-400 mt-1.5">Fill in the form on the left and hit generate</p>
               </>
             )}
           </div>
