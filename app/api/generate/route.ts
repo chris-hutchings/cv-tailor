@@ -12,9 +12,9 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (jobDescription.length > 10000 || cvText.length > 10000) {
+    if (jobDescription.length > 20000 || cvText.length > 15000) {
       return NextResponse.json(
-        { error: 'Input too long. Please trim to under 10,000 characters each.' },
+        { error: 'Input too long. Please trim the job description to under 20,000 characters and your CV to under 15,000.' },
         { status: 400 }
       )
     }

@@ -70,8 +70,32 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Trim to a reasonable length
-    return NextResponse.json({ text: text.slice(0, 12000) })
+    // Try to find the job description section by looking for common markers
+    // and extracting a focused window of text around it
+    const JOB_MARKERS = [
+      'about the job', 'about this job', 'job description', 'about the role',
+      'the role', 'what you\'ll do', 'responsibilities', 'what we\'re looking for',
+      'requirements', 'qualifications', 'about us', 'we are looking',
+    ]
+
+    let extracted = text
+    const lowerText = text.toLowerCase()
+    let earliestIdx = -1
+
+    for (const marker of JOB_MARKERS) {
+      const idx = lowerText.indexOf(marker)
+      if (idx !== -1 && (earliestIdx === -1 || idx < earliestIdx)) {
+        earliestIdx = idx
+      }
+    }
+
+    if (earliestIdx > 200) {
+      // Start from a bit before the marker to catch the job title/company name
+      extracted = text.slice(Math.max(0, earliestIdx - 200))
+    }
+
+    // Cap at 8,000 chars — enough for any job description, trims leftover footer noise
+    return NextResponse.json({ text: extracted.slice(0, 8000) })
   } catch (err) {
     const message = err instanceof Error ? err.message : ''
     if (message.includes('timeout') || message.includes('abort')) {
